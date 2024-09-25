@@ -31,7 +31,8 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <Header />
-        {children}
+        <main>{children}</main>{" "}
+        {/* Tailwindで余白を設定 */}
         <Footer />
       </body>
     </html>
