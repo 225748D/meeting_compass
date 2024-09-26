@@ -1,7 +1,7 @@
 export const fileToBase64 = async (file: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = () => {
       if (reader.result instanceof ArrayBuffer || reader.result == null) {
         reject(new Error("FileReader result is not an string"));
       } else {
