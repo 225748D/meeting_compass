@@ -1,7 +1,13 @@
+"use client";
 import React from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+  const handleButtonClick = () => {
+    router.push("/transcription");
+  };
   return (
     <div className="flex flex-col items-center justify-center h-screen bg-gray-100">
       {/* 中央にアイコンを配置 */}
@@ -12,8 +18,11 @@ export default function Home() {
         height={200}
       />
 
-      {/* スタートボタン */}
-      <button className="mt-5 px-5 py-2 text-lg rounded text-white">
+              {/* スタートボタン */}
+      <button
+        onClick={handleButtonClick} // ボタンが押された時の処理
+        className="mt-5 px-5 py-2 text-lg rounded text-white"
+      >
         <Image src="/assets/play.svg" alt="Play" width={70} height={70} />
       </button>
 
