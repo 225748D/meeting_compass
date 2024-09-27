@@ -1,10 +1,10 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AudioRecorder from "../utils/AudioRecorder";
 import { fileToBase64 } from "../utils/base64";
 
-const RE_FETCH_INTERVAL = 30000;
+const RE_FETCH_INTERVAL = 10000;
 async function getMicrophoneStream(): Promise<MediaStream> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -20,6 +20,12 @@ export default function Home() {
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState<boolean>(false);
+
+  const speechTextsRef = useRef(speechTexts);
+
+  useEffect(() => {
+    speechTextsRef.current = speechTexts;
+  }, [speechTexts]);
 
   useEffect(() => {
     const setupRecorder = async () => {
@@ -65,16 +71,21 @@ export default function Home() {
       }
     };
     getSpeechToText();
-    setInterval(() => {
+  }, [isRecording, recorder]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
       getTopics();
     }, RE_FETCH_INTERVAL);
-  }, [isRecording, recorder]);
+
+    return () => clearInterval(intervalId);
+  }, []);
 
   const getTopics = async () => {
     const response = await fetch("/api/gemini", {
       method: "POST",
       body: JSON.stringify({
-        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${speechTexts.join(
+        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${speechTextsRef.current.join(
           "\n"
         )}`,
       }),
