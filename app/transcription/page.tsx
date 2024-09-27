@@ -30,6 +30,19 @@ export default function Home() {
       );
     };
 
+    function scrollToBottom() {
+      const scrollable = document.getElementById('scrollable');
+      if (scrollable) {
+        scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
+        const observer = new MutationObserver(scrollToBottom);
+        observer.observe(scrollable, { childList: true, subtree: true });
+      }
+    }
+  
+    // 初回実行
+    scrollToBottom();
+  
+
     setupRecorder();
   }, []);
 
@@ -43,9 +56,9 @@ export default function Home() {
         }
         const response = await fetch("/api/whisper", {
           method: "POST",
-          body: JSON.stringify({ blob: base64_blob }),
+         body: JSON.stringify({ blob: base64_blob }),
         });
-        // 変換されたテキストを出力
+       // 変換されたテキストを出力
         const { result } = await response.json();
         setSpeechTexts((prev) => [...prev, result]);
       }
@@ -77,7 +90,7 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-2 text-center">
           Transcription Logs
         </h2>
-        <div className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center justify-center">
+        <div className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto" id="scrollable">
           {speechTexts.length <= 0 ? (
             <p>Transcription logs will be displayed here</p>
           ) : (
