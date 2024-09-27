@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.20.0",
+    "dotenv": "^16.4.5",
     "next": "14.2.13",
     "openai": "^4.64.0",
     "react": "^18",

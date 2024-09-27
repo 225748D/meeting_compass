@@ -15,43 +15,57 @@ async function getMicrophoneStream(): Promise<MediaStream> {
 }
 
 export default function Home() {
-  const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
-  const [speechTexts, setSpeechTexts] = useState<string[]>([]);
-  const [isRecording, setIsRecording] = useState<boolean>(false);
+  // const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
+  // const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  // const [isRecording, setIsRecording] = useState<boolean>(false);
+
+  // useEffect(() => {
+  //   const setupRecorder = async () => {
+  //     const stream = await getMicrophoneStream();
+  //     const newRecorder = new AudioRecorder(stream);
+  //     setRecorder(newRecorder);
+  //     newRecorder.startMonitoring(
+  //       () => setIsRecording(true),
+  //       () => setIsRecording(false)
+  //     );
+  //   };
+
+  //   setupRecorder();
+  // }, []);
+
+  // useEffect(() => {
+  //   const getSpeechToText = async () => {
+  //     if (!isRecording && recorder) {
+  //       const newBlob = recorder.getAudioBlob();
+  //       const base64_blob = await fileToBase64(newBlob);
+  //       if (base64_blob === "data:audio/webm;base64,") {
+  //         return;
+  //       }
+  //       const response = await fetch("/api/whisper", {
+  //         method: "POST",
+  //         body: JSON.stringify({ blob: base64_blob }),
+  //       });
+  //       // 変換されたテキストを出力
+  //       const { result } = await response.json();
+  //       setSpeechTexts((prev) => [...prev, result]);
+  //     }
+  //   };
+  //   getSpeechToText();
+  // }, [isRecording, recorder]);
 
   useEffect(() => {
-    const setupRecorder = async () => {
-      const stream = await getMicrophoneStream();
-      const newRecorder = new AudioRecorder(stream);
-      setRecorder(newRecorder);
-      newRecorder.startMonitoring(
-        () => setIsRecording(true),
-        () => setIsRecording(false)
-      );
+    const getTopics = async () => {
+      const response = await fetch("/api/gemini", {
+        method: "POST",
+        body: JSON.stringify({
+          _prompt: "tell me about the topics discussed in the meeting",
+        }),
+      });
+      const { result } = await response.json();
+      console.log(result);
     };
-
-    setupRecorder();
+    getTopics();
   }, []);
-
-  useEffect(() => {
-    const getSpeechToText = async () => {
-      if (!isRecording && recorder) {
-        const newBlob = recorder.getAudioBlob();
-        const base64_blob = await fileToBase64(newBlob);
-        if (base64_blob === "data:audio/webm;base64,") {
-          return;
-        }
-        const response = await fetch("/api/whisper", {
-          method: "POST",
-          body: JSON.stringify({ blob: base64_blob }),
-        });
-        // 変換されたテキストを出力
-        const { result } = await response.json();
-        setSpeechTexts((prev) => [...prev, result]);
-      }
-    };
-    getSpeechToText();
-  }, [isRecording, recorder]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-10">
@@ -78,11 +92,11 @@ export default function Home() {
           Transcription Logs
         </h2>
         <div className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center justify-center">
-          {speechTexts.length <= 0 ? (
+          {/* {speechTexts.length <= 0 ? (
             <p>Transcription logs will be displayed here</p>
           ) : (
             speechTexts.map((text, index) => <p key={index}>{text}</p>)
-          )}
+          )} */}
         </div>
       </div>
     </div>
