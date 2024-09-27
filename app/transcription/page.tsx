@@ -14,10 +14,14 @@ async function getMicrophoneStream(): Promise<MediaStream> {
   }
 }
 
+const RE_FETCH_INTERVAL = 30000;
+
 export default function Home() {
-  // const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
-  // const [speechTexts, setSpeechTexts] = useState<string[]>([]);
-  // const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
+  const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  const [topics, setTopics] = useState<string[]>([]);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [preGetTopicsTime, setGetTopicsTime] = useState<number>(Date.now());
 
   // useEffect(() => {
   //   const setupRecorder = async () => {
@@ -58,14 +62,23 @@ export default function Home() {
       const response = await fetch("/api/gemini", {
         method: "POST",
         body: JSON.stringify({
-          _prompt: "tell me about the topics discussed in the meeting",
+          _prompt: `Extract the main topics from the following text and list them as bullet points:\n\n${speechTexts}`,
         }),
       });
       const { result } = await response.json();
+      setTopics([result]);
       console.log(result);
     };
+    // if (isThirtySecondsPassed(preGetTopicsTime)) {
+    //   getTopics();
+    //   setGetTopicsTime(Date.now());
+    // }
     getTopics();
-  }, []);
+  }, [speechTexts]);
+
+  const isThirtySecondsPassed = (dt: number) => {
+    return Date.now() - dt > RE_FETCH_INTERVAL;
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-10">
@@ -82,7 +95,11 @@ export default function Home() {
       <div className="mt-8 p-4 bg-white rounded shadow-lg w-3/4">
         <h2 className="text-xl font-bold mb-2 text-center">Extracted Topics</h2>
         <div className="h-24 border border-gray-300 rounded p-2 text-gray-500 flex items-center justify-center">
-          <p>Topics will be displayed here</p>
+          {topics.length <= 0 ? (
+            <p>Topics will be displayed here</p>
+          ) : (
+            topics.map((topic, index) => <p key={index}>{topic}</p>)
+          )}
         </div>
       </div>
 
