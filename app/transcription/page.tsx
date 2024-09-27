@@ -18,10 +18,11 @@ const RE_FETCH_INTERVAL = 30000;
 
 export default function Home() {
   const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
-  const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  const [speechTexts, setSpeechTexts] = useState<string[]>([
+    "こんにちは、世界！",
+  ]);
   const [topics, setTopics] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [preGetTopicsTime, setGetTopicsTime] = useState<number>(Date.now());
 
   // useEffect(() => {
   //   const setupRecorder = async () => {
@@ -62,23 +63,22 @@ export default function Home() {
       const response = await fetch("/api/gemini", {
         method: "POST",
         body: JSON.stringify({
-          _prompt: `Extract the main topics from the following text and list them as bullet points:\n\n${speechTexts}`,
+          _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${speechTexts.join(
+            "\n"
+          )}`,
         }),
       });
       const { result } = await response.json();
       setTopics([result]);
-      console.log(result);
     };
-    // if (isThirtySecondsPassed(preGetTopicsTime)) {
-    //   getTopics();
-    //   setGetTopicsTime(Date.now());
-    // }
-    getTopics();
-  }, [speechTexts]);
-
-  const isThirtySecondsPassed = (dt: number) => {
-    return Date.now() - dt > RE_FETCH_INTERVAL;
-  };
+    setInterval(() => {
+      const text = "こんにちは、世界！";
+      setSpeechTexts((prev) => [...prev, text]);
+      console.log("setSpeechTexts", speechTexts);
+      getTopics();
+    }, RE_FETCH_INTERVAL);
+    // getTopics();
+  }, []);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-10">
