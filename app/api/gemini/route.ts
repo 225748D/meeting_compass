@@ -16,7 +16,6 @@ export async function POST(req: NextRequest) {
       model: "gemini-1.5-flash",
     });
     const prompt = _prompt;
-    console.log("Prompt: ", prompt);
     const result = await model.generateContent({
       contents: [
         {
