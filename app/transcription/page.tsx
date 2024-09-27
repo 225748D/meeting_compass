@@ -82,12 +82,12 @@ export default function Home() {
   }, []);
 
   const getTopics = async () => {
+    const recentTexts = speechTextsRef.current.slice(-15);
+    const promptText = recentTexts.join("\n");
     const response = await fetch("/api/gemini", {
       method: "POST",
       body: JSON.stringify({
-        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${speechTextsRef.current.join(
-          "\n"
-        )}`,
+        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
       }),
     });
     const { result } = await response.json();
