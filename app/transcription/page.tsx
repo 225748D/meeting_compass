@@ -1,9 +1,10 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import AudioRecorder from "../utils/AudioRecorder";
 import { fileToBase64 } from "../utils/base64";
 
+const RE_FETCH_INTERVAL = 10000;
 async function getMicrophoneStream(): Promise<MediaStream> {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -17,7 +18,14 @@ async function getMicrophoneStream(): Promise<MediaStream> {
 export default function Home() {
   const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  const [topics, setTopics] = useState<string[]>([]);
   const [isRecording, setIsRecording] = useState<boolean>(false);
+
+  const speechTextsRef = useRef(speechTexts);
+
+  useEffect(() => {
+    speechTextsRef.current = speechTexts;
+  }, [speechTexts]);
 
   useEffect(() => {
     const setupRecorder = async () => {
@@ -31,17 +39,16 @@ export default function Home() {
     };
 
     function scrollToBottom() {
-      const scrollable = document.getElementById('scrollable');
+      const scrollable = document.getElementById("scrollable");
       if (scrollable) {
         scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
         const observer = new MutationObserver(scrollToBottom);
         observer.observe(scrollable, { childList: true, subtree: true });
       }
     }
-  
+
     // 初回実行
     scrollToBottom();
-  
 
     setupRecorder();
   }, []);
@@ -56,15 +63,36 @@ export default function Home() {
         }
         const response = await fetch("/api/whisper", {
           method: "POST",
-         body: JSON.stringify({ blob: base64_blob }),
+          body: JSON.stringify({ blob: base64_blob }),
         });
-       // 変換されたテキストを出力
+        // 変換されたテキストを出力
         const { result } = await response.json();
         setSpeechTexts((prev) => [...prev, result]);
       }
     };
     getSpeechToText();
   }, [isRecording, recorder]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      getTopics();
+    }, RE_FETCH_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const getTopics = async () => {
+    const recentTexts = speechTextsRef.current.slice(-15);
+    const promptText = recentTexts.join("\n");
+    const response = await fetch("/api/gemini", {
+      method: "POST",
+      body: JSON.stringify({
+        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
+      }),
+    });
+    const { result } = await response.json();
+    setTopics([result]);
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-10">
@@ -81,7 +109,11 @@ export default function Home() {
       <div className="mt-8 p-4 bg-white rounded shadow-lg w-3/4">
         <h2 className="text-xl font-bold mb-2 text-center">Extracted Topics</h2>
         <div className="h-24 border border-gray-300 rounded p-2 text-gray-500 flex items-center justify-center">
-          <p>Topics will be displayed here</p>
+          {topics.length <= 0 ? (
+            <p>Topics will be displayed here</p>
+          ) : (
+            topics.map((topic, index) => <p key={index}>{topic}</p>)
+          )}
         </div>
       </div>
 
@@ -90,7 +122,10 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-2 text-center">
           Transcription Logs
         </h2>
-        <div className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto" id="scrollable">
+        <div
+          className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto"
+          id="scrollable"
+        >
           {speechTexts.length <= 0 ? (
             <p>Transcription logs will be displayed here</p>
           ) : (
