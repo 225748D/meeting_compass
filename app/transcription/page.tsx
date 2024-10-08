@@ -269,10 +269,7 @@ export default function Home() {
           )}
         </div>
       </div>
-      <video
-        id="pipVideo"
-        // style={{ display: "none" }}
-      ></video>
+      <video id="pipVideo" style={{ display: "none" }}></video>
       <button
         id="pipButton"
         className="mt-4 px-5 py-2 text-lg rounded text-white bg-gray-400"
