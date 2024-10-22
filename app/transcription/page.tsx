@@ -60,6 +60,28 @@ export default function Home() {
               height: 150,
               disallowReturnToOpener: true,
             })) as Window;
+          // Copy style sheets over from the initial document
+          // so that the player looks the same.
+          [...document.styleSheets].forEach((styleSheet) => {
+            try {
+              const cssRules = [...styleSheet.cssRules]
+                .map((rule) => rule.cssText)
+                .join("");
+              const style = document.createElement("style");
+
+              style.textContent = cssRules;
+              pipWindow.document.head.appendChild(style);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (e) {
+              const link = document.createElement("link");
+
+              link.rel = "stylesheet";
+              link.type = styleSheet.type;
+              // link.media = styleSheet.media;
+              // link.href = styleSheet.href;
+              pipWindow.document.head.appendChild(link);
+            }
+          });
           const topic = topicRef.current!;
           const marker = document.createElement("span");
           marker.id = "marker";
@@ -75,12 +97,6 @@ export default function Home() {
             playerContainer?.append(pipPlayer!);
             marker.remove();
           });
-
-          // adopt tailwindcss to the Picture-in-Picture window
-          const link = pipWindow.document.createElement("link");
-          link.rel = "stylesheet";
-          link.href = "/_next/static/css/app/layout.css";
-          pipWindow.document.head.appendChild(link);
         });
       }
     }
