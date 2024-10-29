@@ -3,7 +3,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import AudioRecorder from "../utils/AudioRecorder";
 import { fileToBase64 } from "../utils/base64";
-
+import { utils, MicVAD } from "@ricky0123/vad-web";
 const RE_FETCH_INTERVAL = 10000;
 async function getMicrophoneStream(): Promise<MediaStream> {
   try {
@@ -31,12 +31,27 @@ export default function Home() {
   useEffect(() => {
     const setupRecorder = async () => {
       const stream = await getMicrophoneStream();
-      const newRecorder = new AudioRecorder(stream);
-      setRecorder(newRecorder);
-      newRecorder.startMonitoring(
-        () => setIsRecording(true),
-        () => setIsRecording(false)
-      );
+      const micVAD = await MicVAD.new({
+        workletURL: "/vad.worklet.bundle.min.js",
+        modelURL: "/silero_vad.onnx",
+
+        onSpeechStart() {
+          console.log("Speech Start");
+          setIsRecording(true);
+        },
+        onSpeechEnd(audio: Float32Array) {
+          console.log("Speech End");
+          setIsRecording(false);
+          const wavBuffer = utils.encodeWAV(audio);
+          const base64 = utils.arrayBufferToBase64(wavBuffer);
+          const url = `data:audio/wav;base64,${base64}`;
+          getSpeechToTextBase64(url);
+        },
+        stream,
+      });
+      micVAD.start();
+      console.log("micVAD started");
+      // micVAD.destroy();
     };
 
     function scrollToBottom() {
@@ -107,25 +122,22 @@ export default function Home() {
     setupRecorder();
   }, []);
 
-  useEffect(() => {
-    const getSpeechToText = async () => {
-      if (!isRecording && recorder) {
-        const newBlob = recorder.getAudioBlob();
-        const base64_blob = await fileToBase64(newBlob);
-        if (base64_blob === "data:audio/webm;base64,") {
-          return;
-        }
-        const response = await fetch("/api/whisper", {
-          method: "POST",
-          body: JSON.stringify({ blob: base64_blob }),
-        });
-        // 変換されたテキストを出力
-        const { result } = await response.json();
-        setSpeechTexts((prev) => [...prev, result]);
-      }
-    };
-    getSpeechToText();
-  }, [isRecording, recorder]);
+  const getSpeechToText = async (blob: Blob) => {
+    const base64_blob = await fileToBase64(blob);
+    getSpeechToTextBase64(base64_blob);
+  };
+  const getSpeechToTextBase64 = async (base64_url: string) => {
+    if (base64_url === "data:audio/webm;base64,") {
+      return;
+    }
+    const response = await fetch("/api/whisper", {
+      method: "POST",
+      body: JSON.stringify({ blob: base64_url }),
+    });
+    // 変換されたテキストを出力
+    const { result } = await response.json();
+    setSpeechTexts((prev) => [...prev, result]);
+  };
 
   useEffect(() => {
     const intervalId = setInterval(() => {
