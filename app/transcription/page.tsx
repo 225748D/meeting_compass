@@ -55,15 +55,6 @@ export default function Home() {
       // micVAD.destroy();
     };
 
-    function scrollToBottom() {
-      const scrollable = document.getElementById("scrollable");
-      if (scrollable) {
-        scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
-        const observer = new MutationObserver(scrollToBottom);
-        observer.observe(scrollable, { childList: true, subtree: true });
-      }
-    }
-
     if ("documentPictureInPicture" in window) {
       const pipButton = document.getElementById("pipButton");
       if (pipButton) {
@@ -116,18 +107,26 @@ export default function Home() {
         });
       }
     }
-
-    // 初回実行
-    scrollToBottom();
-
     setupRecorder();
   }, []);
+
+  
+  useEffect(() => {
+    const scrollToBottom = () => {
+      const scrollable = document.getElementById("scrollable");
+      if (scrollable) {
+        scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
+      }
+    }
+    scrollToBottom();
+  }, [speechTexts]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getSpeechToText = async (blob: Blob) => {
     const base64_blob = await fileToBase64(blob);
     getSpeechToTextBase64(base64_blob);
   };
+
   const getSpeechToTextBase64 = async (base64_url: string) => {
     if (base64_url === "data:audio/webm;base64,") {
       return;
