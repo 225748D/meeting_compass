@@ -1,7 +1,6 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import AudioRecorder from "../utils/AudioRecorder";
 import { fileToBase64 } from "../utils/base64";
 import { utils, MicVAD } from "@ricky0123/vad-web";
 const RE_FETCH_INTERVAL = 10000;
@@ -16,10 +15,8 @@ async function getMicrophoneStream(): Promise<MediaStream> {
 }
 
 export default function Home() {
-  const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
-  const [isRecording, setIsRecording] = useState<boolean>(false);
 
   const speechTextsRef = useRef(speechTexts);
   const topicRef = useRef<HTMLDivElement>(null);
@@ -37,15 +34,19 @@ export default function Home() {
 
         onSpeechStart() {
           console.log("Speech Start");
-          setIsRecording(true);
         },
         onSpeechEnd(audio: Float32Array) {
           console.log("Speech End");
-          setIsRecording(false);
           const wavBuffer = utils.encodeWAV(audio);
           const base64 = utils.arrayBufferToBase64(wavBuffer);
           const url = `data:audio/wav;base64,${base64}`;
           getSpeechToTextBase64(url);
+        },
+        onVADMisfire() {
+          console.log("VAD Misfire");
+        },
+        ortConfig: (ort) => {
+          ort.env.wasm.wasmPaths = "/";
         },
         stream,
       });
@@ -122,6 +123,7 @@ export default function Home() {
     setupRecorder();
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getSpeechToText = async (blob: Blob) => {
     const base64_blob = await fileToBase64(blob);
     getSpeechToTextBase64(base64_blob);
