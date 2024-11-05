@@ -22,6 +22,7 @@ export default function Home() {
   const [isRecording, setIsRecording] = useState<boolean>(false);
 
   const speechTextsRef = useRef(speechTexts);
+  const topicRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     speechTextsRef.current = speechTexts;
@@ -44,6 +45,59 @@ export default function Home() {
         scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
         const observer = new MutationObserver(scrollToBottom);
         observer.observe(scrollable, { childList: true, subtree: true });
+      }
+    }
+
+    if ("documentPictureInPicture" in window) {
+      const pipButton = document.getElementById("pipButton");
+      if (pipButton) {
+        pipButton.addEventListener("click", async () => {
+          const pipWindow =
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            (await window.documentPictureInPicture.requestWindow({
+              width: 600,
+              height: 150,
+              disallowReturnToOpener: true,
+            })) as Window;
+          // Copy style sheets over from the initial document
+          // so that the player looks the same.
+          [...document.styleSheets].forEach((styleSheet) => {
+            try {
+              const cssRules = [...styleSheet.cssRules]
+                .map((rule) => rule.cssText)
+                .join("");
+              const style = document.createElement("style");
+
+              style.textContent = cssRules;
+              pipWindow.document.head.appendChild(style);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (e) {
+              const link = document.createElement("link");
+
+              link.rel = "stylesheet";
+              link.type = styleSheet.type;
+              // link.media = styleSheet.media;
+              // link.href = styleSheet.href;
+              pipWindow.document.head.appendChild(link);
+            }
+          });
+          const topic = topicRef.current!;
+          const marker = document.createElement("span");
+          marker.id = "marker";
+          marker.textContent = "Picture-in-Pictureで表示中";
+          topic.before(marker);
+          pipWindow.document.body.appendChild(topic);
+          // Move the player back when the Picture-in-Picture window closes.
+          pipWindow.addEventListener("pagehide", (event) => {
+            const playerContainer = document.querySelector("#topicContainer");
+            const pipPlayer = (event.target as typeof document)?.querySelector(
+              "#topic"
+            );
+            playerContainer?.append(pipPlayer!);
+            marker.remove();
+          });
+        });
       }
     }
 
@@ -106,16 +160,29 @@ export default function Home() {
       />
 
       {/* トピックを表示する枠 */}
-      <div className="mt-8 p-4 bg-white rounded shadow-lg w-3/4">
-        <h2 className="text-xl font-bold mb-2 text-center">Extracted Topics</h2>
-        <div className="h-24 border border-gray-300 rounded p-2 text-gray-500 flex items-center justify-center">
-          {topics.length <= 0 ? (
-            <p>Topics will be displayed here</p>
-          ) : (
-            topics.map((topic, index) => <p key={index}>{topic}</p>)
-          )}
+      <div
+        id="topicContainer"
+        className="mt-8 p-4 bg-white rounded shadow-lg w-3/4"
+      >
+        <div id="topic" className="" ref={topicRef}>
+          <h2 className="text-xl font-bold mb-2 text-center">
+            Extracted Topics
+          </h2>
+          <div className="h-24 border border-gray-300 rounded p-2 text-gray-500 flex items-center justify-center">
+            {topics.length <= 0 ? (
+              <p>Topics will be displayed here</p>
+            ) : (
+              topics.map((topic, index) => <p key={index}>{topic}</p>)
+            )}
+          </div>
         </div>
       </div>
+      <button
+        id="pipButton"
+        className="mt-4 px-5 py-2 text-lg rounded text-white bg-gray-400"
+      >
+        pipボタン
+      </button>
 
       {/* 文字起こしのログを表示する枠 */}
       <div className="mt-4 mb-4 p-4 bg-white rounded shadow-lg w-3/4 max-h-96 overflow-y-auto">
