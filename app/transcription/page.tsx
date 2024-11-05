@@ -1,9 +1,8 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import AudioRecorder from "../utils/AudioRecorder";
 import { fileToBase64 } from "../utils/base64";
-
+import { utils, MicVAD } from "@ricky0123/vad-web";
 const RE_FETCH_INTERVAL = 10000;
 async function getMicrophoneStream(): Promise<MediaStream> {
   try {
@@ -16,12 +15,11 @@ async function getMicrophoneStream(): Promise<MediaStream> {
 }
 
 export default function Home() {
-  const [recorder, setRecorder] = useState<AudioRecorder | null>(null);
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
-  const [isRecording, setIsRecording] = useState<boolean>(false);
 
   const speechTextsRef = useRef(speechTexts);
+  const topicRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     speechTextsRef.current = speechTexts;
@@ -30,48 +28,117 @@ export default function Home() {
   useEffect(() => {
     const setupRecorder = async () => {
       const stream = await getMicrophoneStream();
-      const newRecorder = new AudioRecorder(stream);
-      setRecorder(newRecorder);
-      newRecorder.startMonitoring(
-        () => setIsRecording(true),
-        () => setIsRecording(false)
-      );
+      const micVAD = await MicVAD.new({
+        workletURL: "/vad.worklet.bundle.min.js",
+        modelURL: "/silero_vad.onnx",
+
+        onSpeechStart() {
+          console.log("Speech Start");
+        },
+        onSpeechEnd(audio: Float32Array) {
+          console.log("Speech End");
+          const wavBuffer = utils.encodeWAV(audio);
+          const base64 = utils.arrayBufferToBase64(wavBuffer);
+          const url = `data:audio/wav;base64,${base64}`;
+          getSpeechToTextBase64(url);
+        },
+        onVADMisfire() {
+          console.log("VAD Misfire");
+        },
+        ortConfig: (ort) => {
+          ort.env.wasm.wasmPaths = "/";
+        },
+        stream,
+      });
+      micVAD.start();
+      console.log("micVAD started");
+      // micVAD.destroy();
     };
 
-    function scrollToBottom() {
-      const scrollable = document.getElementById("scrollable");
-      if (scrollable) {
-        scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
-        const observer = new MutationObserver(scrollToBottom);
-        observer.observe(scrollable, { childList: true, subtree: true });
+    if ("documentPictureInPicture" in window) {
+      const pipButton = document.getElementById("pipButton");
+      if (pipButton) {
+        pipButton.addEventListener("click", async () => {
+          const pipWindow =
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            (await window.documentPictureInPicture.requestWindow({
+              width: 600,
+              height: 150,
+              disallowReturnToOpener: true,
+            })) as Window;
+          // Copy style sheets over from the initial document
+          // so that the player looks the same.
+          [...document.styleSheets].forEach((styleSheet) => {
+            try {
+              const cssRules = [...styleSheet.cssRules]
+                .map((rule) => rule.cssText)
+                .join("");
+              const style = document.createElement("style");
+
+              style.textContent = cssRules;
+              pipWindow.document.head.appendChild(style);
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            } catch (e) {
+              const link = document.createElement("link");
+
+              link.rel = "stylesheet";
+              link.type = styleSheet.type;
+              // link.media = styleSheet.media;
+              // link.href = styleSheet.href;
+              pipWindow.document.head.appendChild(link);
+            }
+          });
+          const topic = topicRef.current!;
+          const marker = document.createElement("span");
+          marker.id = "marker";
+          marker.textContent = "Picture-in-Pictureで表示中";
+          topic.before(marker);
+          pipWindow.document.body.appendChild(topic);
+          // Move the player back when the Picture-in-Picture window closes.
+          pipWindow.addEventListener("pagehide", (event) => {
+            const playerContainer = document.querySelector("#topicContainer");
+            const pipPlayer = (event.target as typeof document)?.querySelector(
+              "#topic"
+            );
+            playerContainer?.append(pipPlayer!);
+            marker.remove();
+          });
+        });
       }
     }
-
-    // 初回実行
-    scrollToBottom();
-
     setupRecorder();
   }, []);
 
+  
   useEffect(() => {
-    const getSpeechToText = async () => {
-      if (!isRecording && recorder) {
-        const newBlob = recorder.getAudioBlob();
-        const base64_blob = await fileToBase64(newBlob);
-        if (base64_blob === "data:audio/webm;base64,") {
-          return;
-        }
-        const response = await fetch("/api/whisper", {
-          method: "POST",
-          body: JSON.stringify({ blob: base64_blob }),
-        });
-        // 変換されたテキストを出力
-        const { result } = await response.json();
-        setSpeechTexts((prev) => [...prev, result]);
+    const scrollToBottom = () => {
+      const scrollable = document.getElementById("scrollable");
+      if (scrollable) {
+        scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
       }
-    };
-    getSpeechToText();
-  }, [isRecording, recorder]);
+    }
+    scrollToBottom();
+  }, [speechTexts]);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const getSpeechToText = async (blob: Blob) => {
+    const base64_blob = await fileToBase64(blob);
+    getSpeechToTextBase64(base64_blob);
+  };
+
+  const getSpeechToTextBase64 = async (base64_url: string) => {
+    if (base64_url === "data:audio/webm;base64,") {
+      return;
+    }
+    const response = await fetch("/api/whisper", {
+      method: "POST",
+      body: JSON.stringify({ blob: base64_url }),
+    });
+    // 変換されたテキストを出力
+    const { result } = await response.json();
+    setSpeechTexts((prev) => [...prev, result]);
+  };
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -106,16 +173,29 @@ export default function Home() {
       />
 
       {/* トピックを表示する枠 */}
-      <div className="mt-8 p-4 bg-white rounded shadow-lg w-3/4">
-        <h2 className="text-xl font-bold mb-2 text-center">Extracted Topics</h2>
-        <div className="h-24 border border-gray-300 rounded p-2 text-gray-500 flex items-center justify-center">
-          {topics.length <= 0 ? (
-            <p>Topics will be displayed here</p>
-          ) : (
-            topics.map((topic, index) => <p key={index}>{topic}</p>)
-          )}
+      <div
+        id="topicContainer"
+        className="mt-8 p-4 bg-white rounded shadow-lg w-3/4"
+      >
+        <div id="topic" className="" ref={topicRef}>
+          <h2 className="text-xl font-bold mb-2 text-center">
+            Extracted Topics
+          </h2>
+          <div className="h-24 border border-gray-300 rounded p-2 text-gray-500 flex items-center justify-center">
+            {topics.length <= 0 ? (
+              <p>Topics will be displayed here</p>
+            ) : (
+              topics.map((topic, index) => <p key={index}>{topic}</p>)
+            )}
+          </div>
         </div>
       </div>
+      <button
+        id="pipButton"
+        className="mt-4 px-5 py-2 text-lg rounded text-white bg-gray-400"
+      >
+        pipボタン
+      </button>
 
       {/* 文字起こしのログを表示する枠 */}
       <div className="mt-4 mb-4 p-4 bg-white rounded shadow-lg w-3/4 max-h-96 overflow-y-auto">
