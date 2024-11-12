@@ -110,7 +110,7 @@ export default function Home() {
     setupRecorder();
   }, []);
 
-  
+
   useEffect(() => {
     const scrollToBottom = () => {
       const scrollable = document.getElementById("scrollable");
