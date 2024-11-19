@@ -16,18 +16,25 @@ export async function POST(req: NextRequest) {
       model: "gemini-1.5-flash",
     });
     const prompt = _prompt;
-    const result = await model.generateContent({
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: prompt }],
-        },
-      ],
-      generationConfig: {
-        maxOutputTokens: 100,
-        temperature: 0.1,
-      },
-    });
+    const debug = false;
+    const result = !debug
+      ? await model.generateContent({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: prompt }],
+            },
+          ],
+          generationConfig: {
+            maxOutputTokens: 100,
+            temperature: 0.1,
+          },
+        })
+      : {
+          response: {
+            text: () => "Debug response",
+          },
+        };
     const response = result.response;
     const text = response.text();
     return NextResponse.json({ result: text });

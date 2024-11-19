@@ -19,14 +19,16 @@ export async function POST(req: NextRequest) {
     const blob = await base64DecodeAsBlob(_blob);
     const file = new File([blob], "audio.webm", { type: "audio/webm" });
 
-    const response = await openai.audio.transcriptions.create({
-      model: "whisper-1",
-      language: "ja",
-      file: file,
-    });
-    // const response = {
-    //   text: "Hello, world!",
-    // };
+    const debug = false;
+    const response = !debug
+      ? await openai.audio.transcriptions.create({
+          model: "whisper-1",
+          language: "ja",
+          file: file,
+        })
+      : {
+          text: "Hello, world!",
+        };
 
     return NextResponse.json({ result: response.text });
   } catch (error) {
