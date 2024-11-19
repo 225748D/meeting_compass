@@ -352,6 +352,11 @@ export default function Home() {
               checked ? desktopEnabled() : desktopDisabled();
             }}
           />
+          <div className="mt-3 text-sm">
+            {" "}
+            <p>Windows/ChromeOS: 画面・タブからの音声で対応</p>
+            <p>macOS/Linux: タブからの音声のみ対応</p>
+          </div>
           <div
             className="my-5 object-contain w-[200px]"
             id="screenCaptureContainer"
