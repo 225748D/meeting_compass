@@ -31,8 +31,11 @@ export default function Home() {
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [defaultDeviceId, setDefaultDeviceId] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
+  const [micChecked, setMicChecked] = useState(false);
   let micVAD: MicVAD | undefined = undefined;
   let micStream: MediaStream | undefined = undefined;
+  // let desktopStream: MediaStream | undefined = undefined;
+  // let desktopVAD: MicVAD | undefined = undefined;
 
   const speechTextsRef = useRef(speechTexts);
   const topicRef = useRef<HTMLDivElement>(null);
@@ -41,8 +44,10 @@ export default function Home() {
     speechTextsRef.current = speechTexts;
   }, [speechTexts]);
 
-  const micEnabled = () => {
-    setupRecorder(deviceId);
+  const micEnabled = async () => {
+    const stream = await getMicrophoneStream(deviceId);
+    micStream = stream;
+    await setupRecorder(stream);
   };
   const micDisabled = () => {
     if (micVAD) {
@@ -84,13 +89,12 @@ export default function Home() {
     getMicrophoneDevices();
   }, []);
 
-  const setupRecorder = async (deviceId?: string) => {
+  const setupRecorder = async (stream: MediaStream) => {
     if (micVAD) {
       micVAD.destroy();
       micVAD = undefined;
       console.log("micVAD destroyed");
     }
-    const stream = await getMicrophoneStream(deviceId);
     micStream = stream;
     micVAD = await MicVAD.new({
       workletURL: "/vad.worklet.bundle.min.js",
@@ -241,14 +245,21 @@ export default function Home() {
             aria-label="マイクをオンにする"
             defaultChecked={false}
             onCheckedChange={(checked) => {
+              setMicChecked(checked);
               checked ? micEnabled() : micDisabled();
             }}
           />
           <div className="my-5">
             <Select
               defaultValue={defaultDeviceId ?? "default"}
-              onValueChange={(value) => {
+              onValueChange={async (value) => {
                 setDeviceId(value);
+
+                // マイクがONのとき => mediaStreamが存在している
+                if (micChecked) {
+                  micDisabled();
+                  await micEnabled();
+                }
               }}
             >
               <SelectTrigger className="w-[180px]">
