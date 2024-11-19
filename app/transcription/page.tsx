@@ -88,6 +88,8 @@ export default function Home() {
         "screenCaptureContainer"
       );
       if (desktopCaptureContainer) {
+        // reset the container
+        desktopCaptureContainer.innerHTML = "";
         const error = document.createElement("p");
         error.textContent =
           "画面をキャプチャできませんでした。再試行してください\n Failed to Capture Screen. Please Retry";
@@ -187,60 +189,58 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    if ("documentPictureInPicture" in window) {
-      const pipButton = document.getElementById("pipButton");
-      if (pipButton) {
-        pipButton.addEventListener("click", async () => {
-          const pipWindow =
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-expect-error
-            (await window.documentPictureInPicture.requestWindow({
-              width: 600,
-              height: 150,
-              disallowReturnToOpener: true,
-            })) as Window;
-          // Copy style sheets over from the initial document
-          // so that the player looks the same.
-          [...document.styleSheets].forEach((styleSheet) => {
-            try {
-              const cssRules = [...styleSheet.cssRules]
-                .map((rule) => rule.cssText)
-                .join("");
-              const style = document.createElement("style");
+  if ("documentPictureInPicture" in window) {
+    const pipButton = document.getElementById("pipButton");
+    if (pipButton) {
+      pipButton.addEventListener("click", async () => {
+        const pipWindow =
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-expect-error
+          (await window.documentPictureInPicture.requestWindow({
+            width: 600,
+            height: 150,
+            disallowReturnToOpener: true,
+          })) as Window;
+        // Copy style sheets over from the initial document
+        // so that the player looks the same.
+        [...document.styleSheets].forEach((styleSheet) => {
+          try {
+            const cssRules = [...styleSheet.cssRules]
+              .map((rule) => rule.cssText)
+              .join("");
+            const style = document.createElement("style");
 
-              style.textContent = cssRules;
-              pipWindow.document.head.appendChild(style);
-              // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            } catch (e) {
-              const link = document.createElement("link");
+            style.textContent = cssRules;
+            pipWindow.document.head.appendChild(style);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          } catch (e) {
+            const link = document.createElement("link");
 
-              link.rel = "stylesheet";
-              link.type = styleSheet.type;
-              // link.media = styleSheet.media;
-              // link.href = styleSheet.href;
-              pipWindow.document.head.appendChild(link);
-            }
-          });
-          const topic = topicRef.current!;
-          const marker = document.createElement("span");
-          marker.id = "marker";
-          marker.textContent = "Picture-in-Pictureで表示中";
-          topic.before(marker);
-          pipWindow.document.body.appendChild(topic);
-          // Move the player back when the Picture-in-Picture window closes.
-          pipWindow.addEventListener("pagehide", (event) => {
-            const playerContainer = document.querySelector("#topicContainer");
-            const pipPlayer = (event.target as typeof document)?.querySelector(
-              "#topic"
-            );
-            playerContainer?.append(pipPlayer!);
-            marker.remove();
-          });
+            link.rel = "stylesheet";
+            link.type = styleSheet.type;
+            // link.media = styleSheet.media;
+            // link.href = styleSheet.href;
+            pipWindow.document.head.appendChild(link);
+          }
         });
-      }
+        const topic = topicRef.current!;
+        const marker = document.createElement("span");
+        marker.id = "marker";
+        marker.textContent = "Picture-in-Pictureで表示中";
+        topic.before(marker);
+        pipWindow.document.body.appendChild(topic);
+        // Move the player back when the Picture-in-Picture window closes.
+        pipWindow.addEventListener("pagehide", (event) => {
+          const playerContainer = document.querySelector("#topicContainer");
+          const pipPlayer = (event.target as typeof document)?.querySelector(
+            "#topic"
+          );
+          playerContainer?.append(pipPlayer!);
+          marker.remove();
+        });
+      });
     }
-  }, []);
+  }
 
   useEffect(() => {
     const scrollToBottom = () => {
