@@ -32,10 +32,11 @@ export default function Home() {
   const [defaultDeviceId, setDefaultDeviceId] = useState<string | null>(null);
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
   const [micChecked, setMicChecked] = useState(false);
+  // const [desktopChecked, setDesktopChecked] = useState(false);
   let micVAD: MicVAD | undefined = undefined;
   let micStream: MediaStream | undefined = undefined;
-  // let desktopStream: MediaStream | undefined = undefined;
-  // let desktopVAD: MicVAD | undefined = undefined;
+  let desktopStream: MediaStream | undefined = undefined;
+  let desktopVAD: MicVAD | undefined = undefined;
 
   const speechTextsRef = useRef(speechTexts);
   const topicRef = useRef<HTMLDivElement>(null);
@@ -47,7 +48,7 @@ export default function Home() {
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
     micStream = stream;
-    await setupRecorder(stream);
+    await setupRecorder(stream, true);
   };
   const micDisabled = () => {
     if (micVAD) {
@@ -58,6 +59,53 @@ export default function Home() {
     if (micStream) {
       micStream.getTracks().forEach((track) => track.stop());
       micStream = undefined;
+    }
+  };
+  const desktopEnabled = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      desktopStream = stream;
+      const desktopCaptureContainer = document.getElementById(
+        "screenCaptureContainer"
+      );
+      if (desktopCaptureContainer) {
+        desktopCaptureContainer.innerHTML = "";
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.controls = true;
+        video.width = 200;
+        video.controls = false;
+        desktopCaptureContainer.appendChild(video);
+      }
+      await setupRecorder(stream, false);
+    } catch (err) {
+      const desktopCaptureContainer = document.getElementById(
+        "screenCaptureContainer"
+      );
+      if (desktopCaptureContainer) {
+        const error = document.createElement("p");
+        error.textContent =
+          "画面をキャプチャできませんでした。再試行してください\n Failed to Capture Screen. Please Retry";
+        error.style.color = "red";
+        desktopCaptureContainer.appendChild(error);
+      }
+      console.error("Error accessing desktop capture  :", err);
+    }
+  };
+  const desktopDisabled = () => {
+    if (desktopVAD) {
+      desktopVAD.destroy();
+      desktopVAD = undefined;
+      console.log("desktopVAD destroyed");
+    }
+    if (desktopStream) {
+      desktopStream.getTracks().forEach((track) => track.stop());
+      desktopStream = undefined;
     }
   };
 
@@ -89,14 +137,23 @@ export default function Home() {
     getMicrophoneDevices();
   }, []);
 
-  const setupRecorder = async (stream: MediaStream) => {
-    if (micVAD) {
+  const setupRecorder = async (stream: MediaStream, isMic?: boolean) => {
+    if (isMic && micVAD) {
       micVAD.destroy();
       micVAD = undefined;
       console.log("micVAD destroyed");
+    } else if (!isMic && desktopVAD) {
+      desktopVAD.destroy();
+      desktopVAD = undefined;
+      console.log("desktopVAD destroyed");
     }
-    micStream = stream;
-    micVAD = await MicVAD.new({
+
+    if (isMic) {
+      micStream = stream;
+    } else {
+      desktopStream = stream;
+    }
+    const vad = await MicVAD.new({
       workletURL: "/vad.worklet.bundle.min.js",
       modelURL: "/silero_vad.onnx",
 
@@ -118,8 +175,16 @@ export default function Home() {
       },
       stream,
     });
-    micVAD.start();
-    console.log("micVAD started");
+
+    if (isMic) {
+      micVAD = vad;
+      micVAD.start();
+      console.log("micVAD started");
+    } else {
+      desktopVAD = vad;
+      desktopVAD.start();
+      console.log("DesktopVAD started");
+    }
   };
 
   useEffect(() => {
@@ -281,9 +346,16 @@ export default function Home() {
           </h2>
           <Switch
             aria-label="デスクトップ・タブからの音声入力をオンにする"
-            disabled={true}
             defaultChecked={false}
+            onCheckedChange={async (checked) => {
+              // setDesktopChecked(checked);
+              checked ? desktopEnabled() : desktopDisabled();
+            }}
           />
+          <div
+            className="my-5 object-contain w-[200px]"
+            id="screenCaptureContainer"
+          ></div>
         </div>
       </div>
 
