@@ -29,16 +29,20 @@ export default function Home() {
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [defaultDeviceId, setDefaultDeviceId] = useState<string | null>(null);
+  const [defaultDeviceId, setDefaultDeviceId] = useState<string | undefined>(
+    undefined
+  );
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
   const [micChecked, setMicChecked] = useState(false);
-  // const [desktopChecked, setDesktopChecked] = useState(false);
-  let micVAD: MicVAD | undefined = undefined;
-  let micStream: MediaStream | undefined = undefined;
-  let desktopStream: MediaStream | undefined = undefined;
-  let desktopVAD: MicVAD | undefined = undefined;
-
-  const speechTextsRef = useRef(speechTexts);
+  const [micStream, setMicStream] = useState<MediaStream | undefined>(
+    undefined
+  );
+  const [desktopStream, setDesktopStream] = useState<MediaStream | undefined>(
+    undefined
+  );
+  const [micVAD, setMicVAD] = useState<MicVAD | undefined>(undefined);
+  const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
+  const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,27 +51,30 @@ export default function Home() {
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
-    micStream = stream;
+    setMicStream(stream);
     await setupRecorder(stream, true);
   };
+
   const micDisabled = () => {
+    // console.log("micDisabled", micVAD, micStream);
     if (micVAD) {
       micVAD.destroy();
-      micVAD = undefined;
+      setMicVAD(undefined);
       console.log("micVAD destroyed");
     }
     if (micStream) {
       micStream.getTracks().forEach((track) => track.stop());
-      micStream = undefined;
+      setMicStream(undefined);
     }
   };
+
   const desktopEnabled = async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
         audio: { echoCancellation: true, noiseSuppression: true },
       });
-      desktopStream = stream;
+      setDesktopStream(stream);
       const desktopCaptureContainer = document.getElementById(
         "screenCaptureContainer"
       );
@@ -97,15 +104,16 @@ export default function Home() {
       console.error("Error accessing desktop capture  :", err);
     }
   };
+
   const desktopDisabled = () => {
     if (desktopVAD) {
       desktopVAD.destroy();
-      desktopVAD = undefined;
+      setDesktopVAD(undefined);
       console.log("desktopVAD destroyed");
     }
     if (desktopStream) {
       desktopStream.getTracks().forEach((track) => track.stop());
-      desktopStream = undefined;
+      setDesktopStream(undefined);
     }
   };
 
@@ -140,19 +148,20 @@ export default function Home() {
   const setupRecorder = async (stream: MediaStream, isMic?: boolean) => {
     if (isMic && micVAD) {
       micVAD.destroy();
-      micVAD = undefined;
+      setMicVAD(undefined);
       console.log("micVAD destroyed");
     } else if (!isMic && desktopVAD) {
       desktopVAD.destroy();
-      desktopVAD = undefined;
+      setDesktopVAD(undefined);
       console.log("desktopVAD destroyed");
     }
 
-    if (isMic) {
-      micStream = stream;
-    } else {
-      desktopStream = stream;
-    }
+    // if (isMic) {
+    //   micStream = stream;
+    // } else {
+    //   desktopStream = stream;
+    // }
+    // console.log("micStream, desktopStream", micStream, desktopStream);
     const vad = await MicVAD.new({
       workletURL: "/vad.worklet.bundle.min.js",
       modelURL: "/silero_vad.onnx",
@@ -177,12 +186,12 @@ export default function Home() {
     });
 
     if (isMic) {
-      micVAD = vad;
-      micVAD.start();
+      setMicVAD(vad);
+      micVAD?.start();
       console.log("micVAD started");
     } else {
-      desktopVAD = vad;
-      desktopVAD.start();
+      setDesktopVAD(vad);
+      desktopVAD?.start();
       console.log("DesktopVAD started");
     }
   };
