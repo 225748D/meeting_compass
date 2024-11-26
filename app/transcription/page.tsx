@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { peripheralPermissionCheck } from "../utils/peripheralPermissionCheck";
 
 const RE_FETCH_INTERVAL = 10000;
 async function getMicrophoneStream(deviceId?: string): Promise<MediaStream> {
@@ -117,33 +118,28 @@ export default function Home() {
     }
   };
 
-  useEffect(() => {
-    const getMicrophoneDevices = async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const audioDevices = devices.filter(
-          (device) => device.kind === "audioinput"
-        );
-        setDevices(audioDevices);
+  const getMicrophoneDevices = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioDevices = devices.filter(
+        (device) => device.kind === "audioinput"
+      );
+      setDevices(() => audioDevices);
 
-        // 既定のデバイスを特定
-        const defaultDevice = audioDevices.find(
-          (device) => device.deviceId === "default"
-        );
-        if (defaultDevice) {
-          setDefaultDeviceId(defaultDevice.deviceId);
-        } else if (audioDevices.length > 0) {
-          setDefaultDeviceId(audioDevices[0].deviceId);
-        }
-        console.dir(audioDevices);
-        console.dir(defaultDevice);
-      } catch (error) {
-        console.error("Error accessing media devices.", error);
+      // 既定のデバイスを特定
+      const defaultDevice = audioDevices.find(
+        (device) => device.deviceId === "default"
+      );
+      if (defaultDevice) {
+        setDefaultDeviceId(defaultDevice.deviceId);
+      } else if (audioDevices.length > 0) {
+        setDefaultDeviceId(audioDevices[0].deviceId);
       }
-    };
-
-    getMicrophoneDevices();
-  }, []);
+      console.dir(audioDevices);
+    } catch (error) {
+      console.error("Error accessing media devices.", error);
+    }
+  };
 
   const setupRecorder = async (stream: MediaStream, isMic?: boolean) => {
     if (isMic && micVAD) {
@@ -187,16 +183,22 @@ export default function Home() {
 
     if (isMic) {
       setMicVAD(vad);
-      micVAD?.start();
+      vad.start();
       console.log("micVAD started");
     } else {
       setDesktopVAD(vad);
-      desktopVAD?.start();
+      vad.start();
       console.log("DesktopVAD started");
     }
   };
 
   useEffect(() => {
+    const permissionCheck = async () => {
+      await peripheralPermissionCheck("microphone");
+      await getMicrophoneDevices();
+    };
+    permissionCheck();
+
     if ("documentPictureInPicture" in window) {
       const pipButton = document.getElementById("pipButton");
       if (pipButton) {
@@ -369,11 +371,13 @@ export default function Home() {
                 <SelectValue placeholder="Select Microphone Device" />
               </SelectTrigger>
               <SelectContent>
-                {devices.map((device, index) => (
-                  <SelectItem key={index} value={device.deviceId}>
-                    {device.label || `マイクデバイス ${index + 1}`}
-                  </SelectItem>
-                ))}
+                {devices.map((device, index) =>
+                  device.deviceId ? (
+                    <SelectItem key={index} value={device.deviceId}>
+                      {device.label || `マイクデバイス ${index + 1}`}
+                    </SelectItem>
+                  ) : null
+                )}
               </SelectContent>
             </Select>
           </div>
