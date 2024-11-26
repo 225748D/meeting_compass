@@ -110,14 +110,13 @@ export default function Home() {
     setupRecorder();
   }, []);
 
-  
   useEffect(() => {
     const scrollToBottom = () => {
       const scrollable = document.getElementById("scrollable");
       if (scrollable) {
         scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
       }
-    }
+    };
     scrollToBottom();
   }, [speechTexts]);
 
@@ -150,7 +149,36 @@ export default function Home() {
 
   const getTopics = async () => {
     const recentTexts = speechTextsRef.current.slice(-15);
-    const promptText = recentTexts.join("\n");
+
+    // キーワードを抽出するための非同期処理を配列で作成
+    const extractedKeywords = await Promise.all(
+      recentTexts.map(async (text) => {
+        const response = await fetch("/api/kuromoji", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text }), // 各テキストを個別に送信
+        });
+        if (!response.ok) {
+          console.error("Error fetching keywords:", response.statusText);
+          return []; // エラー時は空の配列を返す
+        }
+        const data = await response.json();
+        return data.keywords || []; // keywordsが存在しない場合は空配列
+      })
+    );
+
+    // フラット化して一つの配列にする
+    const allKeywords = extractedKeywords.flat();
+
+    // キーワードが存在しない場合は処理を中止
+    if (allKeywords.length === 0) {
+      console.warn("No keywords extracted.");
+      return; // キーワードがない場合は何もせずに戻る
+    }
+
+    const promptText = allKeywords.join("\n");
     const response = await fetch("/api/gemini", {
       method: "POST",
       body: JSON.stringify({
