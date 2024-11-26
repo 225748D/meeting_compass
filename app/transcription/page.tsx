@@ -3,10 +3,21 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { fileToBase64 } from "../utils/base64";
 import { utils, MicVAD } from "@ricky0123/vad-web";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 const RE_FETCH_INTERVAL = 10000;
-async function getMicrophoneStream(): Promise<MediaStream> {
+async function getMicrophoneStream(deviceId?: string): Promise<MediaStream> {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: { deviceId: { exact: deviceId } },
+    });
     return stream;
   } catch (err) {
     console.error("Error accessing microphone:", err);
@@ -17,6 +28,15 @@ async function getMicrophoneStream(): Promise<MediaStream> {
 export default function Home() {
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
   const [topics, setTopics] = useState<string[]>([]);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [defaultDeviceId, setDefaultDeviceId] = useState<string | null>(null);
+  const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
+  const [micChecked, setMicChecked] = useState(false);
+  // const [desktopChecked, setDesktopChecked] = useState(false);
+  let micVAD: MicVAD | undefined = undefined;
+  let micStream: MediaStream | undefined = undefined;
+  let desktopStream: MediaStream | undefined = undefined;
+  let desktopVAD: MicVAD | undefined = undefined;
 
   const speechTextsRef = useRef(speechTexts);
   const topicRef = useRef<HTMLDivElement>(null);
@@ -25,36 +45,149 @@ export default function Home() {
     speechTextsRef.current = speechTexts;
   }, [speechTexts]);
 
-  useEffect(() => {
-    const setupRecorder = async () => {
-      const stream = await getMicrophoneStream();
-      const micVAD = await MicVAD.new({
-        workletURL: "/vad.worklet.bundle.min.js",
-        modelURL: "/silero_vad.onnx",
-
-        onSpeechStart() {
-          console.log("Speech Start");
-        },
-        onSpeechEnd(audio: Float32Array) {
-          console.log("Speech End");
-          const wavBuffer = utils.encodeWAV(audio);
-          const base64 = utils.arrayBufferToBase64(wavBuffer);
-          const url = `data:audio/wav;base64,${base64}`;
-          getSpeechToTextBase64(url);
-        },
-        onVADMisfire() {
-          console.log("VAD Misfire");
-        },
-        ortConfig: (ort) => {
-          ort.env.wasm.wasmPaths = "/";
-        },
-        stream,
+  const micEnabled = async () => {
+    const stream = await getMicrophoneStream(deviceId);
+    micStream = stream;
+    await setupRecorder(stream, true);
+  };
+  const micDisabled = () => {
+    if (micVAD) {
+      micVAD.destroy();
+      micVAD = undefined;
+      console.log("micVAD destroyed");
+    }
+    if (micStream) {
+      micStream.getTracks().forEach((track) => track.stop());
+      micStream = undefined;
+    }
+  };
+  const desktopEnabled = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: { echoCancellation: true, noiseSuppression: true },
       });
-      micVAD.start();
-      console.log("micVAD started");
-      // micVAD.destroy();
+      desktopStream = stream;
+      const desktopCaptureContainer = document.getElementById(
+        "screenCaptureContainer"
+      );
+      if (desktopCaptureContainer) {
+        desktopCaptureContainer.innerHTML = "";
+        const video = document.createElement("video");
+        video.srcObject = stream;
+        video.autoplay = true;
+        video.muted = true;
+        video.controls = true;
+        video.width = 200;
+        video.controls = false;
+        desktopCaptureContainer.appendChild(video);
+      }
+      await setupRecorder(stream, false);
+    } catch (err) {
+      const desktopCaptureContainer = document.getElementById(
+        "screenCaptureContainer"
+      );
+      if (desktopCaptureContainer) {
+        const error = document.createElement("p");
+        error.textContent =
+          "画面をキャプチャできませんでした。再試行してください\n Failed to Capture Screen. Please Retry";
+        error.style.color = "red";
+        desktopCaptureContainer.appendChild(error);
+      }
+      console.error("Error accessing desktop capture  :", err);
+    }
+  };
+  const desktopDisabled = () => {
+    if (desktopVAD) {
+      desktopVAD.destroy();
+      desktopVAD = undefined;
+      console.log("desktopVAD destroyed");
+    }
+    if (desktopStream) {
+      desktopStream.getTracks().forEach((track) => track.stop());
+      desktopStream = undefined;
+    }
+  };
+
+  useEffect(() => {
+    const getMicrophoneDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioDevices = devices.filter(
+          (device) => device.kind === "audioinput"
+        );
+        setDevices(audioDevices);
+
+        // 既定のデバイスを特定
+        const defaultDevice = audioDevices.find(
+          (device) => device.deviceId === "default"
+        );
+        if (defaultDevice) {
+          setDefaultDeviceId(defaultDevice.deviceId);
+        } else if (audioDevices.length > 0) {
+          setDefaultDeviceId(audioDevices[0].deviceId);
+        }
+        console.dir(audioDevices);
+        console.dir(defaultDevice);
+      } catch (error) {
+        console.error("Error accessing media devices.", error);
+      }
     };
 
+    getMicrophoneDevices();
+  }, []);
+
+  const setupRecorder = async (stream: MediaStream, isMic?: boolean) => {
+    if (isMic && micVAD) {
+      micVAD.destroy();
+      micVAD = undefined;
+      console.log("micVAD destroyed");
+    } else if (!isMic && desktopVAD) {
+      desktopVAD.destroy();
+      desktopVAD = undefined;
+      console.log("desktopVAD destroyed");
+    }
+
+    if (isMic) {
+      micStream = stream;
+    } else {
+      desktopStream = stream;
+    }
+    const vad = await MicVAD.new({
+      workletURL: "/vad.worklet.bundle.min.js",
+      modelURL: "/silero_vad.onnx",
+
+      onSpeechStart() {
+        console.log("Speech Start");
+      },
+      onSpeechEnd(audio: Float32Array) {
+        console.log("Speech End");
+        const wavBuffer = utils.encodeWAV(audio);
+        const base64 = utils.arrayBufferToBase64(wavBuffer);
+        const url = `data:audio/wav;base64,${base64}`;
+        getSpeechToTextBase64(url);
+      },
+      onVADMisfire() {
+        console.log("VAD Misfire");
+      },
+      ortConfig: (ort) => {
+        ort.env.wasm.wasmPaths = "/";
+      },
+      stream,
+    });
+
+    if (isMic) {
+      micVAD = vad;
+      micVAD.start();
+      console.log("micVAD started");
+    } else {
+      desktopVAD = vad;
+      desktopVAD.start();
+      console.log("DesktopVAD started");
+    }
+  };
+
+  useEffect(() => {
     if ("documentPictureInPicture" in window) {
       const pipButton = document.getElementById("pipButton");
       if (pipButton) {
@@ -107,7 +240,6 @@ export default function Home() {
         });
       }
     }
-    setupRecorder();
   }, []);
 
   useEffect(() => {
@@ -199,6 +331,67 @@ export default function Home() {
         width={200} // アイコンのサイズ
         height={200}
       />
+      {/* 設定場所 */}
+      <div className="flex flex-row mt-6 items-start">
+        <div className="mx-7 flex flex-col items-center justify-center">
+          <h2 className="text-xl font-bold mb-2 text-center">マイクの設定</h2>
+          <Switch
+            aria-label="マイクをオンにする"
+            defaultChecked={false}
+            onCheckedChange={(checked) => {
+              setMicChecked(checked);
+              checked ? micEnabled() : micDisabled();
+            }}
+          />
+          <div className="my-5">
+            <Select
+              defaultValue={defaultDeviceId ?? "default"}
+              onValueChange={async (value) => {
+                setDeviceId(value);
+
+                // マイクがONのとき => mediaStreamが存在している
+                if (micChecked) {
+                  micDisabled();
+                  await micEnabled();
+                }
+              }}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Select Microphone Device" />
+              </SelectTrigger>
+              <SelectContent>
+                {devices.map((device, index) => (
+                  <SelectItem key={index} value={device.deviceId}>
+                    {device.label || `マイクデバイス ${index + 1}`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <div className="mx-7 flex flex-col items-center justify-center">
+          <h2 className="text-xl font-bold mb-2 text-center">
+            デスクトップ・タブからの音声入力
+          </h2>
+          <Switch
+            aria-label="デスクトップ・タブからの音声入力をオンにする"
+            defaultChecked={false}
+            onCheckedChange={async (checked) => {
+              // setDesktopChecked(checked);
+              checked ? desktopEnabled() : desktopDisabled();
+            }}
+          />
+          <div className="mt-3 text-sm">
+            {" "}
+            <p>Windows/ChromeOS: 画面・タブからの音声で対応</p>
+            <p>macOS/Linux: タブからの音声のみ対応</p>
+          </div>
+          <div
+            className="my-5 object-contain w-[200px]"
+            id="screenCaptureContainer"
+          ></div>
+        </div>
+      </div>
 
       {/* トピックを表示する枠 */}
       <div

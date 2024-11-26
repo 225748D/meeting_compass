@@ -10,11 +10,18 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.20.0",
+    "@radix-ui/react-select": "^2.1.2",
+    "@radix-ui/react-switch": "^1.1.1",
     "@ricky0123/vad-web": "^0.0.19",
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.460.0",
     "next": "14.2.13",
     "openai": "^4.64.0",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "tailwind-merge": "^2.5.4",
+    "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {
     "@types/kuromoji": "^0.1.3",
