@@ -16,25 +16,32 @@ export async function POST(req: NextRequest) {
       model: "gemini-1.5-flash",
     });
     const prompt = _prompt;
-    const debug = false;
-    const result = !debug
-      ? await model.generateContent({
-          contents: [
-            {
-              role: "user",
-              parts: [{ text: prompt }],
-            },
-          ],
-          generationConfig: {
-            maxOutputTokens: 100,
-            temperature: 0.1,
+    const result = await model.generateContent({
+      systemInstruction: {
+        role: "system",
+        parts: [
+          {
+            text: `
+              あなたは、提供されたテキストから最も重要なトピックを1つ抽出するエキスパートです。
+              以下の指示に従ってトピックを特定してください。
+              - テキストの内容を理解し、最も重要なテーマやアイデアを1つだけ抽出してください。
+              - 抽出したトピックは簡潔に表現し、他の情報やデータは含めないでください。
+              - 出力形式は1行で、トピックの名称のみを返してください。
+            `,
           },
-        })
-      : {
-          response: {
-            text: () => "Debug response",
-          },
-        };
+        ],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: 100,
+        temperature: 0.1,
+      },
+    });
     const response = result.response;
     const text = response.text();
     return NextResponse.json({ result: text });
