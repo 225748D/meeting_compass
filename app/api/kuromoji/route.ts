@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import kuromoji from "kuromoji";
-import path from "path";
 
 // kuromojiトークナイザーのビルダーを初期化
 const tokenizerBuilder = kuromoji.builder({
-  dicPath: path.join(process.cwd(), "public") + "/kuromoji/dict",
+  dicPath: "node_modules/kuromoji/dict",
 });
 
 export async function POST(req: NextRequest) {
@@ -23,17 +22,16 @@ export async function POST(req: NextRequest) {
     const { text } = await req.json(); // この行は単一のテキストを期待する
 
     // トークナイザーをビルド
-    const tokenizer: kuromoji.Tokenizer<kuromoji.IpadicFeatures> =
-      await new Promise((resolve, reject) => {
-        tokenizerBuilder.build((err, tokenizer) => {
-          if (err) {
-            console.error("Tokenizer build error:", err);
-            reject(new Error("Error building tokenizer"));
-          } else {
-            resolve(tokenizer);
-          }
-        });
+    const tokenizer: kuromoji.Tokenizer<kuromoji.IpadicFeatures> = await new Promise((resolve, reject) => {
+      tokenizerBuilder.build((err, tokenizer) => {
+        if (err) {
+          console.error("Tokenizer build error:", err);
+          reject(new Error("Error building tokenizer"));
+        } else {
+          resolve(tokenizer);
+        }
       });
+    });
 
     // トークンを解析
     const tokens = tokenizer.tokenize(text);
