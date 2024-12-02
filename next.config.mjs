@@ -33,6 +33,10 @@ const nextConfig = {
               from: "node_modules/onnxruntime-web/dist/*.wasm",
               to: "static/chunks/[name][ext]",
             },
+            {
+              from: "node_modules/kuromoji/dict/*",
+              to: "../public/kuromoji/dict/[name][ext]",
+            },
           ],
         })
       );
