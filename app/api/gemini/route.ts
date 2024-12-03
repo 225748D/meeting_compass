@@ -17,20 +17,6 @@ export async function POST(req: NextRequest) {
     });
     const prompt = _prompt;
     const result = await model.generateContent({
-      systemInstruction: {
-        role: "system",
-        parts: [
-          {
-            text: `
-              あなたは、提供されたテキストから最も重要なトピックを1つ抽出するエキスパートです。
-              以下の指示に従ってトピックを特定してください。
-              - テキストの内容を理解し、最も重要なテーマやアイデアを1つだけ抽出してください。
-              - 抽出したトピックは簡潔に表現し、他の情報やデータは含めないでください。
-              - 出力形式は1行で、トピックの名称のみを返してください。
-            `,
-          },
-        ],
-      },
       contents: [
         {
           role: "user",
