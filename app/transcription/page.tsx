@@ -38,10 +38,11 @@ export default function Home() {
   const [micStream, setMicStream] = useState<MediaStream | undefined>(
     undefined
   );
+  const [micVAD, setMicVAD] = useState<MicVAD | undefined>(undefined);
+  const [desktopChecked, setDesktopChecked] = useState(false);
   const [desktopStream, setDesktopStream] = useState<MediaStream | undefined>(
     undefined
   );
-  const [micVAD, setMicVAD] = useState<MicVAD | undefined>(undefined);
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,13 @@ export default function Home() {
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
+    // 各トラックにendedイベントリスナーを追加
+    stream.getTracks().forEach((track) => {
+      track.addEventListener("ended", () => {
+        setMicChecked(false);
+        micDisabled();
+      });
+    });
     setMicStream(stream);
     await setupRecorder(stream, true);
   };
@@ -75,6 +83,13 @@ export default function Home() {
         video: true,
         audio: { echoCancellation: true, noiseSuppression: true },
       });
+      // 各トラックにendedイベントリスナーを追加
+      stream.getTracks().forEach((track) => {
+        track.addEventListener("ended", () => {
+          desktopDisabled();
+          setDesktopChecked(false);
+        });
+      });
       setDesktopStream(stream);
       const desktopCaptureContainer = document.getElementById(
         "screenCaptureContainer"
@@ -95,8 +110,10 @@ export default function Home() {
       const desktopCaptureContainer = document.getElementById(
         "screenCaptureContainer"
       );
+      setDesktopChecked(false);
       if (desktopCaptureContainer) {
         const error = document.createElement("p");
+        desktopCaptureContainer.innerHTML = "";
         error.textContent =
           "画面をキャプチャできませんでした。再試行してください\n Failed to Capture Screen. Please Retry";
         error.style.color = "red";
@@ -115,6 +132,12 @@ export default function Home() {
     if (desktopStream) {
       desktopStream.getTracks().forEach((track) => track.stop());
       setDesktopStream(undefined);
+    }
+    const desktopCaptureContainer = document.getElementById(
+      "screenCaptureContainer"
+    );
+    if (desktopCaptureContainer) {
+      desktopCaptureContainer.innerHTML = "";
     }
   };
 
@@ -253,14 +276,13 @@ export default function Home() {
     }
   }, []);
 
-  
   useEffect(() => {
     const scrollToBottom = () => {
       const scrollable = document.getElementById("scrollable");
       if (scrollable) {
         scrollable.scrollTop = scrollable.scrollHeight; // 一番下までスクロール
       }
-    }
+    };
     scrollToBottom();
   }, [speechTexts]);
 
@@ -361,8 +383,10 @@ export default function Home() {
           <Switch
             aria-label="デスクトップ・タブからの音声入力をオンにする"
             defaultChecked={false}
-            onCheckedChange={async (checked) => {
+            checked={desktopChecked}
+            onCheckedChange={(checked) => {
               // setDesktopChecked(checked);
+              setDesktopChecked(checked);
               checked ? desktopEnabled() : desktopDisabled();
             }}
           />
@@ -374,7 +398,9 @@ export default function Home() {
           <div
             className="my-5 object-contain w-[200px]"
             id="screenCaptureContainer"
-          ></div>
+          >
+            <p id="screenCaptureError">{""}</p>
+          </div>
         </div>
       </div>
 
