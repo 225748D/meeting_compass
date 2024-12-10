@@ -46,17 +46,16 @@ export default function Home() {
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
-  const isUpdateText = useRef(false);
 
   useEffect(() => {
     speechTextsRef.current = speechTexts;
-    isUpdateText.current = true;
+    let isUpdateText = true;
     const intervalId = setInterval(() => {
-      if (!isUpdateText.current) cleanup();
+      if (!isUpdateText) cleanup();
       getTopics();
     }, RE_FETCH_INTERVAL);
     const cleanup = () => {
-      isUpdateText.current = false;
+      isUpdateText = false;
       clearInterval(intervalId);
     };
   }, [speechTexts]);
