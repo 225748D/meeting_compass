@@ -327,7 +327,7 @@ export default function Home() {
   };
 
   const clickHandler = async () => {
-    const message = "クリップボードに保存するメッセージ";
+    const message = speechTexts.join("\n");
     try {
       await navigator.clipboard.writeText(message);
       alert("クリップボードに保存しました。");
@@ -454,6 +454,12 @@ export default function Home() {
             speechTexts.map((text, index) => <p key={index}>{text}</p>)
           )}
         </div>
+        <button
+          className="mt-4 px-5 py-2 text-lg rounded text-white bg-gray-400"
+          onClick={clickHandler} // クリック時の処理
+        >
+          Copy to Clipboard
+        </button>
       </div>
     </div>
   );
