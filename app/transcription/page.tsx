@@ -1,6 +1,6 @@
 "use client";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import { fileToBase64 } from "../utils/base64";
 import { utils, MicVAD } from "@ricky0123/vad-web";
 import { Switch } from "@/components/ui/switch";
@@ -46,9 +46,19 @@ export default function Home() {
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
+  const isUpdateText = useRef(false);
 
   useEffect(() => {
     speechTextsRef.current = speechTexts;
+    isUpdateText.current = true;
+    const intervalId = setInterval(() => {
+      if (!isUpdateText.current) cleanup();
+      getTopics();
+    }, RE_FETCH_INTERVAL);
+    const cleanup = () => {
+      isUpdateText.current = false;
+      clearInterval(intervalId);
+    };
   }, [speechTexts]);
 
   const micEnabled = async () => {
@@ -304,14 +314,6 @@ export default function Home() {
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
   };
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      getTopics();
-    }, RE_FETCH_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   const getTopics = async () => {
     const recentTexts = speechTextsRef.current.slice(-15);
