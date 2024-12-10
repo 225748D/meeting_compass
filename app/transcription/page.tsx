@@ -51,6 +51,7 @@ export default function Home() {
   useEffect(() => {
     speechTextsRef.current = speechTexts;
     isUpdateText.current = true;
+    console.log("speechTexts updated");
   }, [speechTexts]);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function Home() {
       if (isUpdateText.current) {
         getTopics();
         isUpdateText.current = false;
+        console.log("get topics and reset isUpdateText");
       }
     }, RE_FETCH_INTERVAL);
     return () => clearInterval(interval);
