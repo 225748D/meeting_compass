@@ -53,10 +53,12 @@ export default function Home() {
     const intervalId = setInterval(() => {
       if (!isUpdateText) cleanup();
       getTopics();
+      console.log("update text and get topic");
     }, RE_FETCH_INTERVAL);
     const cleanup = () => {
       isUpdateText = false;
       clearInterval(intervalId);
+      console.log("not update text");
     };
   }, [speechTexts]);
 
