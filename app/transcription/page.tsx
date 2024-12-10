@@ -326,6 +326,16 @@ export default function Home() {
     setTopics([result]);
   };
 
+  const clickHandler = async () => {
+    const message = "クリップボードに保存するメッセージ";
+    try {
+      await navigator.clipboard.writeText(message);
+      alert("クリップボードに保存しました。");
+    } catch (error) {
+      alert("失敗しました。");
+    }
+  };
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-10">
       {/* 中央にアイコンを配置 */}
