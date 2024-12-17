@@ -345,6 +345,36 @@ export default function Home() {
     }
   };
 
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      // ページを閉じる/リロードしようとした場合の処理
+      event.preventDefault();
+      event.returnValue = ""; // Chromeで必要
+    };
+
+    const handlePopState = () => {
+      // 前のページに戻ろうとした場合の処理
+      const confirmation = window.confirm("このページを離れますか？変更内容が保存されない可能性があります。");
+      if (!confirmation) {
+        // ユーザーがキャンセルした場合、履歴を1つ進めて戻さないようにする
+        history.pushState(null, "", location.href);
+      }
+    };
+
+    // イベントリスナーを追加
+    window.addEventListener("beforeunload", handleBeforeUnload); // ページ閉じる/リロード
+    window.addEventListener("popstate", handlePopState); // 履歴操作（戻る/進む）
+
+    // 初期状態の履歴エントリを追加（popstate検出のため）
+    history.pushState(null, "", location.href);
+
+    return () => {
+      // クリーンアップ
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-10">
       {/* 中央にアイコンを配置 */}
