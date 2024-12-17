@@ -44,6 +44,7 @@ export default function Home() {
     undefined
   );
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
   const isUpdateText = useRef(true);
@@ -201,9 +202,11 @@ export default function Home() {
 
       onSpeechStart() {
         console.log("Speech Start");
+        setIsSpeaking(true); // 音声検出中に状態をtrueにする
       },
       onSpeechEnd(audio: Float32Array) {
         console.log("Speech End");
+        setIsSpeaking(false); // 音声検出終了時に状態をfalseにする
         const wavBuffer = utils.encodeWAV(audio);
         const base64 = utils.arrayBufferToBase64(wavBuffer);
         const url = `data:audio/wav;base64,${base64}`;
@@ -390,6 +393,15 @@ export default function Home() {
                 )}
               </SelectContent>
             </Select>
+          </div>
+          <div>
+            {!micChecked ? (
+              <p style={{ color: "red" }}>🚫 マイクがオフになっています</p>
+            ) : isSpeaking ? (
+              <p style={{ color: "green" }}>🎤 音声を認識中...</p>
+            ) : (
+              <p>マイクを待機中...</p>
+            )}
           </div>
         </div>
         <div className="mx-7 flex flex-col items-center justify-center">
