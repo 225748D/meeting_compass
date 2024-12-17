@@ -46,10 +46,24 @@ export default function Home() {
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
+  const isUpdateText = useRef(true);
 
   useEffect(() => {
     speechTextsRef.current = speechTexts;
+    isUpdateText.current = true;
+    console.log("speechTexts updated");
   }, [speechTexts]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isUpdateText.current) {
+        getTopics();
+        isUpdateText.current = false;
+        console.log("get topics and reset isUpdateText");
+      }
+    }, RE_FETCH_INTERVAL);
+    return () => clearInterval(interval);
+  }, []);
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
@@ -304,14 +318,6 @@ export default function Home() {
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
   };
-
-  useEffect(() => {
-    const intervalId = setInterval(() => {
-      getTopics();
-    }, RE_FETCH_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   const getTopics = async () => {
     const recentTexts = speechTextsRef.current.slice(-15);
