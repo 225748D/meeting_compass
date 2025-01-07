@@ -28,6 +28,9 @@ async function getMicrophoneStream(deviceId?: string): Promise<MediaStream> {
 
 export default function Home() {
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  const [editableText, setEditableText] = useState<string>("");
+  const [isEditableTextFocused, setIsEditableTextFocused] =
+    useState<boolean>(false);
   const [topics, setTopics] = useState<string[]>([]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [defaultDeviceId, setDefaultDeviceId] = useState<string | undefined>(
@@ -45,26 +48,40 @@ export default function Home() {
   );
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const speechTextsRef = useRef<string[]>([]);
+
+  // const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
-  const isUpdateText = useRef(true);
 
   useEffect(() => {
-    speechTextsRef.current = speechTexts;
-    isUpdateText.current = true;
-    console.log("speechTexts updated");
-  }, [speechTexts]);
+    if (!isEditableTextFocused) {
+      setEditableText(
+        (prev) => prev + (prev ? "\n" : "") + speechTexts.join("\n")
+      );
+      setSpeechTexts([]);
+    }
+  }, [isEditableTextFocused]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      if (isUpdateText.current) {
-        getTopics();
-        isUpdateText.current = false;
-        console.log("get topics and reset isUpdateText");
-      }
+      const getTopics = async () => {
+        console.log({ editableText });
+        // const recentTexts = speechTextsRef.current.slice(-15);
+        const recentTexts = editableText.split("\n").slice(-15);
+        const promptText = recentTexts.join("\n");
+        const response = await fetch("/api/gemini", {
+          method: "POST",
+          body: JSON.stringify({
+            _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
+          }),
+        });
+        console.log("promptText", promptText);
+        const { result } = await response.json();
+        setTopics([result]);
+      };
+      getTopics();
     }, RE_FETCH_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [editableText]);
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
@@ -320,23 +337,13 @@ export default function Home() {
     // 変換されたテキストを出力
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
+    if (!isEditableTextFocused) {
+      setEditableText((prev) => prev + "\n" + result);
+    }
   };
 
-  const getTopics = async () => {
-    const recentTexts = speechTextsRef.current.slice(-15);
-    const promptText = recentTexts.join("\n");
-    const response = await fetch("/api/gemini", {
-      method: "POST",
-      body: JSON.stringify({
-        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
-      }),
-    });
-    const { result } = await response.json();
-    setTopics([result]);
-  };
-
-  const clickHandler = async () => {
-    const message = speechTexts.join("\n");
+  const handleCopyToClipboard = async () => {
+    const message = editableText;
     try {
       await navigator.clipboard.writeText(message);
       alert("クリップボードに保存しました。");
@@ -354,7 +361,9 @@ export default function Home() {
 
     const handlePopState = () => {
       // 前のページに戻ろうとした場合の処理
-      const confirmation = window.confirm("このページを離れますか？変更内容が保存されない可能性があります。");
+      const confirmation = window.confirm(
+        "このページを離れますか？変更内容が保存されない可能性があります。"
+      );
       if (!confirmation) {
         // ユーザーがキャンセルした場合、履歴を1つ進めて戻さないようにする
         history.pushState(null, "", location.href);
@@ -492,19 +501,37 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-2 text-center">
           Transcription Logs
         </h2>
-        <div
-          className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto"
-          id="scrollable"
-        >
+        {/* <div className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto">
           {speechTexts.length <= 0 ? (
             <p>Transcription logs will be displayed here</p>
           ) : (
             speechTexts.map((text, index) => <p key={index}>{text}</p>)
           )}
-        </div>
+        </div> */}
+        <textarea
+          id="scrollable"
+          rows={10}
+          value={editableText}
+          onChange={(e) => {
+            setEditableText(e.target.value);
+            console.log("onChange", e.target.value);
+          }}
+          className="w-full mt-4 p-2 border border-gray-300 rounded"
+          placeholder="Edit Transcription Logs"
+          onFocus={() => {
+            setIsEditableTextFocused(true);
+          }}
+          onBlur={(e) => {
+            console.log("onBlur", e.target.value);
+            setEditableText(e.target.value + "\n" + speechTexts.join("\n"));
+            console.log({ onBlur_editableText: editableText });
+            setSpeechTexts([]);
+            setIsEditableTextFocused(false);
+          }}
+        />
         <button
           className="mt-4 px-5 py-2 text-lg rounded text-white bg-gray-400"
-          onClick={clickHandler} // クリック時の処理
+          onClick={handleCopyToClipboard} // クリック時の処理
         >
           Copy to Clipboard
         </button>
