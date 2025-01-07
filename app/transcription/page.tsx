@@ -338,7 +338,7 @@ export default function Home() {
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
     if (!isEditableTextFocused) {
-      setEditableText((prev) => prev + "\n" + result);
+      setEditableText((prev) => prev + (prev ? "\n" : "") + result);
     }
   };
 
@@ -523,7 +523,11 @@ export default function Home() {
           }}
           onBlur={(e) => {
             console.log("onBlur", e.target.value);
-            setEditableText(e.target.value + "\n" + speechTexts.join("\n"));
+            setEditableText(
+              e.target.value +
+                (e.target.value ? "\n" : "") +
+                speechTexts.join("\n")
+            );
             console.log({ onBlur_editableText: editableText });
             setSpeechTexts([]);
             setIsEditableTextFocused(false);
