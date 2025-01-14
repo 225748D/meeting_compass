@@ -28,6 +28,7 @@ async function getMicrophoneStream(deviceId?: string): Promise<MediaStream> {
 
 export default function Home() {
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  const [topic, setTopic] = useState<string>("");
   const [topics, setTopics] = useState<string[]>([]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [defaultDeviceId, setDefaultDeviceId] = useState<string | undefined>(
@@ -56,15 +57,28 @@ export default function Home() {
   }, [speechTexts]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
+    const interval = setInterval(async () => {
       if (isUpdateText.current) {
-        getTopics();
+        const recentTexts = speechTextsRef.current.slice(-15);
+        const promptText = recentTexts.join("\n");
+        const response = await fetch("/api/gemini", {
+          method: "POST",
+          body: JSON.stringify({
+            _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
+            beforeTopics: topic,
+          }),
+        });
+        const { result } = await response.json();
+        setTopic(result);
+        if (topics.slice(-1)[0] !== (result as string)) {
+          setTopics((prev) => [...prev, result]);
+          console.info("Topic updated", { topics: [...topics, result] });
+        }
         isUpdateText.current = false;
-        console.log("get topics and reset isUpdateText");
       }
     }, RE_FETCH_INTERVAL);
     return () => clearInterval(interval);
-  }, []);
+  }, [speechTexts, topic, topics]);
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
@@ -322,19 +336,6 @@ export default function Home() {
     setSpeechTexts((prev) => [...prev, result]);
   };
 
-  const getTopics = async () => {
-    const recentTexts = speechTextsRef.current.slice(-15);
-    const promptText = recentTexts.join("\n");
-    const response = await fetch("/api/gemini", {
-      method: "POST",
-      body: JSON.stringify({
-        _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
-      }),
-    });
-    const { result } = await response.json();
-    setTopics([result]);
-  };
-
   const clickHandler = async () => {
     const message = speechTexts.join("\n");
     try {
@@ -354,7 +355,9 @@ export default function Home() {
 
     const handlePopState = () => {
       // 前のページに戻ろうとした場合の処理
-      const confirmation = window.confirm("このページを離れますか？変更内容が保存されない可能性があります。");
+      const confirmation = window.confirm(
+        "このページを離れますか？変更内容が保存されない可能性があります。"
+      );
       if (!confirmation) {
         // ユーザーがキャンセルした場合、履歴を1つ進めて戻さないようにする
         history.pushState(null, "", location.href);
@@ -475,7 +478,7 @@ export default function Home() {
             {topics.length <= 0 ? (
               <p>Topics will be displayed here</p>
             ) : (
-              topics.map((topic, index) => <p key={index}>{topic}</p>)
+              <p>{topics.slice(-3).join(" → ")}</p>
             )}
           </div>
         </div>
