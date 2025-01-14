@@ -31,6 +31,7 @@ export default function Home() {
   const [editableText, setEditableText] = useState<string>("");
   const [isEditableTextFocused, setIsEditableTextFocused] =
     useState<boolean>(false);
+  const [topic, setTopic] = useState<string>("");
   const [topics, setTopics] = useState<string[]>([]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [defaultDeviceId, setDefaultDeviceId] = useState<string | undefined>(
@@ -49,39 +50,40 @@ export default function Home() {
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // const speechTextsRef = useRef<string[]>([]);
   const topicRef = useRef<HTMLDivElement>(null);
+  const isUpdateText = useRef<boolean>(true);
 
   useEffect(() => {
     if (!isEditableTextFocused) {
-      setEditableText(
-        (prev) => prev + (prev ? "\n" : "") + speechTexts.join("\n")
-      );
+      setEditableText((prev) => prev + speechTexts.join("\n"));
       setSpeechTexts([]);
     }
   }, [isEditableTextFocused]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const getTopics = async () => {
-        console.log({ editableText });
-        // const recentTexts = speechTextsRef.current.slice(-15);
+    const interval = setInterval(async () => {
+      if (isUpdateText.current) {
         const recentTexts = editableText.split("\n").slice(-15);
         const promptText = recentTexts.join("\n");
         const response = await fetch("/api/gemini", {
           method: "POST",
           body: JSON.stringify({
             _prompt: `以下のテキストから主要なトピックだけを抽出し、簡潔に文章にしてテキストのみで返してください。\n\n${promptText}`,
+            beforeTopics: topic,
           }),
         });
-        console.log("promptText", promptText);
         const { result } = await response.json();
-        setTopics([result]);
-      };
-      getTopics();
+        console.log({ result, promptText });
+        setTopic(result);
+        if (topics.slice(-1)[0] !== (result as string)) {
+          setTopics((prev) => [...prev, result]);
+          console.info("Topic updated", { topics: [...topics, result] });
+        }
+        isUpdateText.current = false;
+      }
     }, RE_FETCH_INTERVAL);
     return () => clearInterval(interval);
-  }, [editableText]);
+  }, [editableText, topic, topics]);
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
@@ -228,6 +230,7 @@ export default function Home() {
         const base64 = utils.arrayBufferToBase64(wavBuffer);
         const url = `data:audio/wav;base64,${base64}`;
         getSpeechToTextBase64(url);
+        isUpdateText.current = true;
       },
       onVADMisfire() {
         console.log("VAD Misfire");
@@ -339,6 +342,7 @@ export default function Home() {
     setSpeechTexts((prev) => [...prev, result]);
     if (!isEditableTextFocused) {
       setEditableText((prev) => prev + (prev ? "\n" : "") + result);
+      setSpeechTexts([]);
     }
   };
 
@@ -484,7 +488,7 @@ export default function Home() {
             {topics.length <= 0 ? (
               <p>Topics will be displayed here</p>
             ) : (
-              topics.map((topic, index) => <p key={index}>{topic}</p>)
+              <p>{topics.slice(-3).join(" → ")}</p>
             )}
           </div>
         </div>
@@ -525,7 +529,7 @@ export default function Home() {
             console.log("onBlur", e.target.value);
             setEditableText(
               e.target.value +
-                (e.target.value ? "\n" : "") +
+                (e.target.value && speechTexts.length != 0 ? "\n" : "") +
                 speechTexts.join("\n")
             );
             console.log({ onBlur_editableText: editableText });
