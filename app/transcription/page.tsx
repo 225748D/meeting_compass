@@ -56,9 +56,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!isEditableTextFocused) {
-      setEditableText(
-        (prev) => prev + (prev ? "\n" : "") + speechTexts.join("\n")
-      );
+      setEditableText((prev) => prev + speechTexts.join("\n"));
       setSpeechTexts([]);
     }
   }, [isEditableTextFocused]);
@@ -85,7 +83,7 @@ export default function Home() {
       }
     }, RE_FETCH_INTERVAL);
     return () => clearInterval(interval);
-  }, [editableText, speechTexts, topic, topics]);
+  }, [editableText, topic, topics]);
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
@@ -342,7 +340,9 @@ export default function Home() {
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
     if (!isEditableTextFocused) {
+      isUpdateText.current = true;
       setEditableText((prev) => prev + (prev ? "\n" : "") + result);
+      setSpeechTexts([]);
     }
   };
 
@@ -529,7 +529,7 @@ export default function Home() {
             console.log("onBlur", e.target.value);
             setEditableText(
               e.target.value +
-                (e.target.value ? "\n" : "") +
+                (e.target.value && speechTexts.length != 0 ? "\n" : "") +
                 speechTexts.join("\n")
             );
             console.log({ onBlur_editableText: editableText });
