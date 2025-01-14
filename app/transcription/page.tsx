@@ -28,6 +28,9 @@ async function getMicrophoneStream(deviceId?: string): Promise<MediaStream> {
 
 export default function Home() {
   const [speechTexts, setSpeechTexts] = useState<string[]>([]);
+  const [editableText, setEditableText] = useState<string>("");
+  const [isEditableTextFocused, setIsEditableTextFocused] =
+    useState<boolean>(false);
   const [topic, setTopic] = useState<string>("");
   const [topics, setTopics] = useState<string[]>([]);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
@@ -46,15 +49,19 @@ export default function Home() {
   );
   const [desktopVAD, setDesktopVAD] = useState<MicVAD | undefined>(undefined);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const speechTextsRef = useRef<string[]>([]);
+
   const topicRef = useRef<HTMLDivElement>(null);
-  const isUpdateText = useRef(true);
+  const speechTextsRef = useRef<string[]>([]);
+  const isUpdateText = useRef<boolean>(true);
 
   useEffect(() => {
-    speechTextsRef.current = speechTexts;
-    isUpdateText.current = true;
-    console.log("speechTexts updated");
-  }, [speechTexts]);
+    if (!isEditableTextFocused) {
+      setEditableText(
+        (prev) => prev + (prev ? "\n" : "") + speechTexts.join("\n")
+      );
+      setSpeechTexts([]);
+    }
+  }, [isEditableTextFocused]);
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -78,7 +85,7 @@ export default function Home() {
       }
     }, RE_FETCH_INTERVAL);
     return () => clearInterval(interval);
-  }, [speechTexts, topic, topics]);
+  }, [editableText, speechTexts, topic, topics]);
 
   const micEnabled = async () => {
     const stream = await getMicrophoneStream(deviceId);
@@ -334,10 +341,13 @@ export default function Home() {
     // 変換されたテキストを出力
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
+    if (!isEditableTextFocused) {
+      setEditableText((prev) => prev + (prev ? "\n" : "") + result);
+    }
   };
 
-  const clickHandler = async () => {
-    const message = speechTexts.join("\n");
+  const handleCopyToClipboard = async () => {
+    const message = editableText;
     try {
       await navigator.clipboard.writeText(message);
       alert("クリップボードに保存しました。");
@@ -495,19 +505,41 @@ export default function Home() {
         <h2 className="text-xl font-bold mb-2 text-center">
           Transcription Logs
         </h2>
-        <div
-          className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto"
-          id="scrollable"
-        >
+        {/* <div className="h-48 border border-gray-300 rounded p-2 text-gray-500 flex flex-col items-center overflow-y-auto">
           {speechTexts.length <= 0 ? (
             <p>Transcription logs will be displayed here</p>
           ) : (
             speechTexts.map((text, index) => <p key={index}>{text}</p>)
           )}
-        </div>
+        </div> */}
+        <textarea
+          id="scrollable"
+          rows={10}
+          value={editableText}
+          onChange={(e) => {
+            setEditableText(e.target.value);
+            console.log("onChange", e.target.value);
+          }}
+          className="w-full mt-4 p-2 border border-gray-300 rounded"
+          placeholder="Edit Transcription Logs"
+          onFocus={() => {
+            setIsEditableTextFocused(true);
+          }}
+          onBlur={(e) => {
+            console.log("onBlur", e.target.value);
+            setEditableText(
+              e.target.value +
+                (e.target.value ? "\n" : "") +
+                speechTexts.join("\n")
+            );
+            console.log({ onBlur_editableText: editableText });
+            setSpeechTexts([]);
+            setIsEditableTextFocused(false);
+          }}
+        />
         <button
           className="mt-4 px-5 py-2 text-lg rounded text-white bg-gray-400"
-          onClick={clickHandler} // クリック時の処理
+          onClick={handleCopyToClipboard} // クリック時の処理
         >
           Copy to Clipboard
         </button>
