@@ -51,7 +51,6 @@ export default function Home() {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
   const topicRef = useRef<HTMLDivElement>(null);
-  const speechTextsRef = useRef<string[]>([]);
   const isUpdateText = useRef<boolean>(true);
 
   useEffect(() => {
