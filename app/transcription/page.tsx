@@ -64,7 +64,7 @@ export default function Home() {
   useEffect(() => {
     const interval = setInterval(async () => {
       if (isUpdateText.current) {
-        const recentTexts = speechTextsRef.current.slice(-15);
+        const recentTexts = editableText.split("\n").slice(-15);
         const promptText = recentTexts.join("\n");
         const response = await fetch("/api/gemini", {
           method: "POST",
@@ -74,6 +74,7 @@ export default function Home() {
           }),
         });
         const { result } = await response.json();
+        console.log({ result, promptText });
         setTopic(result);
         if (topics.slice(-1)[0] !== (result as string)) {
           setTopics((prev) => [...prev, result]);
@@ -230,6 +231,7 @@ export default function Home() {
         const base64 = utils.arrayBufferToBase64(wavBuffer);
         const url = `data:audio/wav;base64,${base64}`;
         getSpeechToTextBase64(url);
+        isUpdateText.current = true;
       },
       onVADMisfire() {
         console.log("VAD Misfire");
@@ -340,7 +342,6 @@ export default function Home() {
     const { result } = await response.json();
     setSpeechTexts((prev) => [...prev, result]);
     if (!isEditableTextFocused) {
-      isUpdateText.current = true;
       setEditableText((prev) => prev + (prev ? "\n" : "") + result);
       setSpeechTexts([]);
     }
